@@ -8,6 +8,7 @@
 # This script requires fairseq2 to be installed
 
 from contextlib import AbstractContextManager, nullcontext
+from pathlib import Path
 import torch
 
 from fairseq2.logging import get_log_writer
@@ -57,7 +58,7 @@ def main(args_eval, resume_preempt=False):
     # -- EVAL
     args_eval = args_eval.get("eval")
     batch_size = args_eval.get("batch_size")
-    classifier_checkpoint = args_eval.get("checkpoint")
+    classifier_checkpoint = Path(args_eval.get("checkpoint"))
     
     # ----------------------------------------------------------------------- #
 
