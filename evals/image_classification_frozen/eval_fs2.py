@@ -10,7 +10,6 @@
 from contextlib import AbstractContextManager, nullcontext
 import torch
 
-from fairseq2.assets import default_asset_store, setup_asset_store
 from fairseq2.logging import get_log_writer
 from fairseq2.models.jepa import load_jepa_model
 from fairseq2.models.jepa.classifier import JEPA_CLASSIFIER_FAMILY, load_jepa_classifier_model
@@ -79,9 +78,7 @@ def main(args_eval, resume_preempt=False):
         dtype=torch.float32,
         strict_state_dict=False,
     )
-    
-    setup_asset_store(default_asset_store)
-    
+        
     pt_model = load_jepa_model(model_name, device=CPU, dtype=torch.float32)
     share_parameters(pt_model.encoder, model.encoder)
     

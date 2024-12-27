@@ -9,8 +9,10 @@
 from copy import deepcopy
 from dataclasses import asdict
 from pathlib import Path
-from fairseq2.assets import AssetCard, InProcAssetMetadataProvider, default_asset_store
+from fairseq2.assets import AssetCard, InProcAssetMetadataProvider, default_asset_store, setup_asset_store
 from fairseq2.models.jepa import load_jepa_config
+
+setup_asset_store(default_asset_store)
 
 
 def create_model_card(checkpoint: Path, model_arch: str, model_family: str, pretrain_model_card: str, **kwargs) -> AssetCard:
