@@ -73,6 +73,8 @@ def main(args_eval, resume_preempt=False):
         num_classes=num_classes,
     )
     
+    log.info(f"Model card: {classifier_model_card}")
+    
     model = load_jepa_classifier_model(
         classifier_model_card,
         device=CPU,
