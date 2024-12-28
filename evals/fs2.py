@@ -9,8 +9,13 @@
 from copy import deepcopy
 from dataclasses import asdict
 from pathlib import Path
+from typing import List, Optional
+
+from torch import Tensor
+
 from fairseq2.assets import AssetCard, InProcAssetMetadataProvider, default_asset_store, setup_asset_store
 from fairseq2.models.jepa import load_jepa_config
+from fairseq2.models.sequence import SequenceBatch
 
 setup_asset_store(default_asset_store)
 
@@ -49,3 +54,9 @@ def create_model_card(checkpoint: Path, model_arch: str, model_family: str, pret
         return default_asset_store.retrieve_card(name)
     finally:
         default_asset_store.user_metadata_providers.pop()
+
+
+def to_batch(
+    clips: List[List[Tensor]], clip_indices: Optional[List[Tensor]] = None
+) -> SequenceBatch:
+    raise NotImplementedError()
