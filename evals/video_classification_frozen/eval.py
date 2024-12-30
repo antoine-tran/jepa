@@ -69,7 +69,7 @@ def main(args_eval, resume_preempt=False):
     # ----------------------------------------------------------------------- #
     #  PASSED IN PARAMS FROM CONFIG FILE
     # ----------------------------------------------------------------------- #
-
+    
     # -- PRETRAIN
     args_pretrain = args_eval.get('pretrain')
     checkpoint_key = args_pretrain.get('checkpoint_key', 'target_encoder')
@@ -129,7 +129,7 @@ def main(args_eval, resume_preempt=False):
         device = torch.device('cuda:0')
         torch.cuda.set_device(device)
 
-    world_size, rank = init_distributed()
+    world_size, rank = init_distributed(rank_and_world_size=(0, 1))
     logger.info(f'Initialized (rank/world-size) {rank}/{world_size}')
 
     # -- log/checkpointing paths
