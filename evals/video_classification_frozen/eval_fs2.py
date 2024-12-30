@@ -203,7 +203,7 @@ def run_eval(
             batch = to_batch(clips, clip_indices)
             with torch.no_grad():
                 outputs = model(batch)
-
+        breakpoint()
         top1_acc = 100. * outputs.max(dim=1).indices.eq(labels).sum() / batch_size
         top1_acc = float(AllReduce.apply(top1_acc))
         top1_meter.update(top1_acc)
