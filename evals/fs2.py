@@ -82,7 +82,7 @@ class Aggregator(nn.Module):
         features = self.model.encoder_frontend(seqs=x, padding_mask=None)
         embed, _ = self.model.encoder(*features)  # [batch x num_views_per_clip x num_clips, num_tokens, embed_dim]
 
-        _, num_tokens, D  = embed.size(1)
+        _, num_tokens, D = embed.size()
         T = T // self.tubelet_size  # Num temporal tokens
         N = num_tokens // T  # Num spatial tokens
 
