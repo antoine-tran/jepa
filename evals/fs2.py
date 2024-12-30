@@ -120,6 +120,6 @@ class Aggregator(nn.Module):
                         
             # torch.testing.assert_close(view_output, view_output_orig, atol=1e-5, rtol=1e-5)
             
-            # view_outputs.append(view_output)
+            view_outputs.append(view_output)
 
         return view_outputs
