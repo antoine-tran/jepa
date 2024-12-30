@@ -181,7 +181,7 @@ def main(args_eval, resume_preempt=False):
         classifier=classifier,
         data_loader=val_loader,
         device=gang.device,
-        dtype=torch.floa32,
+        dtype=torch.float32,
         attend_across_segments=attend_across_segments,
     )
 
