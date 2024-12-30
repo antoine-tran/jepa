@@ -90,6 +90,7 @@ class Aggregator(nn.Module):
         embed, _ = self.model.encoder(*features)  # [batch x num_views_per_clip x num_clips, num_tokens, embed_dim]
 
         output_orig = self.encoder(x)
+        breakpoint()
         torch.testing.assert_close(embed, output_orig, atol=1e-5, rtol=1e-5)
 
         _, num_tokens, D = embed.size()
@@ -117,7 +118,9 @@ class Aggregator(nn.Module):
             
             # Check parity with the classifier
             view_output_orig = self.classifier(view_output)
-                        
+            
+            breakpoint()
+            
             torch.testing.assert_close(view_output, view_output_orig, atol=1e-5, rtol=1e-5)
             
             view_outputs.append(view_output)
