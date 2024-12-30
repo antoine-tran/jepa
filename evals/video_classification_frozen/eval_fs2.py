@@ -194,7 +194,6 @@ def run_eval(
     dtype,
     attend_across_segments=False,
 ):
-    assert isinstance(model, JepaClassifierModel), f"Unexpected model: {type(model)}"
     top1_meter = AverageMeter()
     for itr, data in enumerate(data_loader):
 
