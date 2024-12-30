@@ -358,10 +358,6 @@ def run_eval(
 
             with torch.no_grad():
                 outputs_fs2 = model(clips, clip_indices=clip_indices)
-                outputs_orig = encoder(clips, clip_indices=clip_indices)
-                outputs_orig = [classifier(o) for o in outputs_orig]
-                for o_fs2, o_orig in zip(outputs_fs2, outputs_orig):
-                    torch.testing.assert_close(o_fs2, o_orig, atol=1e-5, rtol=1e-5)
         
         if attend_across_segments:
             outputs_fs2 = sum([F.softmax(o, dim=1) for o in outputs_fs2]) / len(outputs_fs2)

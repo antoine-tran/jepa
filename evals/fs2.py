@@ -123,5 +123,4 @@ class Aggregator(nn.Module):
             
             view_outputs.append(view_output)
 
-        
         return view_outputs
