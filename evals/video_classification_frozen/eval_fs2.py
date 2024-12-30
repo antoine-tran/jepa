@@ -182,8 +182,10 @@ def _maybe_autocast(device: Device, dtype: DataType) -> AbstractContextManager[N
         return nullcontext()
     
     if dtype == torch.float16:
-        return torch.autocast(device_type=device.type, dtype=dtype, enabled=torch.bfloat16)
-    
+        if device.type == "cuda":
+            return torch.cuda.amp.autocast(dtype=torch.float16, enabled=True)
+        else:
+            return torch.autocast(device_type=device.type, dtype=dtype, enabled=True)
     return torch.autocast(device_type=device.type, dtype=dtype)
 
 
