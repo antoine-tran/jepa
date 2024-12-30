@@ -80,7 +80,7 @@ class Aggregator(nn.Module):
         x = torch.cat(x, dim=0)
 
         features = self.model.encoder_frontend(seqs=x, padding_mask=None)
-        embed = self.model.encoder(*features)  # [batch x num_views_per_clip x num_clips, num_tokens, embed_dim]
+        embed, _ = self.model.encoder(*features)  # [batch x num_views_per_clip x num_clips, num_tokens, embed_dim]
 
         _, num_tokens, D  = embed.size(1)
         T = T // self.tubelet_size  # Num temporal tokens
