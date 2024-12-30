@@ -114,6 +114,7 @@ def main(args_eval, resume_preempt=False):
 
     # -- EXPERIMENT-ID/TAG (optional)
     resume_checkpoint = args_eval.get('resume_checkpoint', False) or resume_preempt
+    probe_checkpoit = args_opt.get("probe_checkpoint")
     eval_tag = args_eval.get('tag', None)
 
     # ----------------------------------------------------------------------- #
@@ -187,7 +188,7 @@ def main(args_eval, resume_preempt=False):
     )
 
     classifier = load_checkpoint(
-        r_path=latest_path,
+        r_path=probe_checkpoit,
         classifier=classifier,
     )
 
@@ -417,7 +418,7 @@ def load_checkpoint(
         # -- loading encoder
         pretrained_dict = checkpoint['classifier']
         msg = classifier.load_state_dict(pretrained_dict)
-        logger.info(f'loaded pretrained classifier from epoch {epoch} with msg: {msg}')
+        logger.info(f'loaded classifier from epoch {epoch} with msg: {msg}')
 
         # -- loading optimizer
         # opt.load_state_dict(checkpoint['opt'])
