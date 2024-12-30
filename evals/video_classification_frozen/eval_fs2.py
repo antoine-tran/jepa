@@ -125,7 +125,7 @@ def main(args_eval, resume_preempt=False):
         model=model,
         data_loader=val_loader,
         device=gang.device,
-        dtype=torch.float32,
+        dtype=torch.float16,
         attend_across_segments=attend_across_segments,
     )
 
