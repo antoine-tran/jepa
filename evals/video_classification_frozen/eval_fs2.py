@@ -146,7 +146,7 @@ def main(args_eval, resume_preempt=False):
             model,
             encoder=encoder,
             classifier=classifier,
-            tubelet_size=tubelet_size, 
+            tubelet_size=tubelet_size,
             attend_across_segments=attend_across_segments
         )
         
@@ -181,7 +181,7 @@ def main(args_eval, resume_preempt=False):
         classifier=classifier,
         data_loader=val_loader,
         device=gang.device,
-        dtype=torch.float16,
+        dtype=torch.floa32,
         attend_across_segments=attend_across_segments,
     )
 
