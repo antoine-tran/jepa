@@ -16,6 +16,7 @@ from torch import Tensor
 from fairseq2.assets import AssetCard, InProcAssetMetadataProvider, default_asset_store, setup_asset_store
 from fairseq2.models.jepa import load_jepa_config
 from fairseq2.models.sequence import SequenceBatch
+import torch
 
 setup_asset_store(default_asset_store)
 
@@ -59,4 +60,9 @@ def create_model_card(checkpoint: Path, model_arch: str, model_family: str, pret
 def to_batch(
     clips: List[List[Tensor]], clip_indices: Optional[List[Tensor]] = None
 ) -> SequenceBatch:
-    raise NotImplementedError()
+    
+    # Concatenate all spatial and temporal views along batch dimension
+    x = [torch.cat(clip, dim=0) for clip in clips]
+    x = torch.cat(x, dim=0)
+    
+    return SequenceBatch(seqs=x, padding_mask=None)

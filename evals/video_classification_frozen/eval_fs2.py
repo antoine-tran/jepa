@@ -24,7 +24,7 @@ from src.utils.logging import AverageMeter
 from src.datasets.data_manager import init_data
 from src.utils.distributed import AllReduce
 
-from evals.fs2 import create_model_card
+from evals.fs2 import create_model_card, to_batch
 
 log = get_log_writer(__name__)
 
@@ -200,8 +200,7 @@ def run_eval(
             clip_indices = [d.to(device, non_blocking=True) for d in data[2]]
             labels = data[1].to(device)
             batch_size = len(labels)
-            breakpoint()
-            batch = SequenceBatch(seqs=torch.stack(clips), padding_mask=torch.stack(clip_indices))
+            batch = to_batch(clips, clip_indices)
             with torch.no_grad():
                 outputs = model(batch)
 
