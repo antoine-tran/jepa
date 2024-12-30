@@ -90,7 +90,7 @@ class Aggregator(nn.Module):
         embed, _ = self.model.encoder(*features)  # [batch x num_views_per_clip x num_clips, num_tokens, embed_dim]
 
         output_orig = self.encoder(x)
-        
+        breakpoint()
         torch.testing.assert_close(embed, output_orig, atol=1e-5, rtol=1e-5)
 
         _, num_tokens, D = embed.size()
@@ -114,7 +114,7 @@ class Aggregator(nn.Module):
             
             view_pool = self.model.pooler(view_embed)
             view_pool = view_pool.squeeze(1)  # Remove temporal dimension as all are attended into one pooled vector
-            view_output = self.model.head(view_pool)            
+            view_output = self.model.head(view_pool) 
             
             # Check parity with the classifier
             view_output_orig = self.classifier(view_output)
