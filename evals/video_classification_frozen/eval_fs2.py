@@ -137,6 +137,7 @@ def main(args_eval, resume_preempt=False):
     
     if gang.rank == 0:
         pt_model = load_jepa_model(model_name, device=CPU, dtype=torch.float32)
+        share_parameters(pt_model.encoder_frontend, model.encoder_frontend)
         share_parameters(pt_model.encoder, model.encoder)
     
         del pt_model
