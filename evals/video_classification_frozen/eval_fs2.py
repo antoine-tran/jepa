@@ -347,7 +347,7 @@ def run_eval(
     for itr, data in enumerate(data_loader):
 
         with _maybe_autocast(device=device, dtype=dtype):
-
+            breakpoint()
             # Load data and put on GPU
             clips = [
                 [dij.to(device, non_blocking=True) for dij in di]  # iterate over spatial views of clip
