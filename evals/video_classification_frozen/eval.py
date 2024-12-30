@@ -89,7 +89,7 @@ def main(args_eval, resume_preempt=False):
 
     # -- DATA
     args_data = args_eval.get('data')
-    train_data_path = [args_data.get('dataset_train')]
+    # train_data_path = [args_data.get('dataset_train')]
     val_data_path = [args_data.get('dataset_val')]
     dataset_type = args_data.get('dataset_type', 'VideoDataset')
     num_classes = args_data.get('num_classes')
@@ -184,22 +184,27 @@ def main(args_eval, resume_preempt=False):
         num_heads=encoder.num_heads,
         depth=1,
         num_classes=num_classes,
-    ).to(device)
+    )
 
-    train_loader = make_dataloader(
-        dataset_type=dataset_type,
-        root_path=train_data_path,
-        resolution=resolution,
-        frames_per_clip=eval_frames_per_clip,
-        frame_step=eval_frame_step,
-        eval_duration=eval_duration,
-        num_segments=eval_num_segments if attend_across_segments else 1,
-        num_views_per_segment=1,
-        allow_segment_overlap=True,
-        batch_size=batch_size,
-        world_size=world_size,
-        rank=rank,
-        training=True)
+    classifier = load_checkpoint(
+        r_path=latest_path,
+        classifier=classifier,
+    )
+
+    # train_loader = make_dataloader(
+    #     dataset_type=dataset_type,
+    #     root_path=train_data_path,
+    #     resolution=resolution,
+    #     frames_per_clip=eval_frames_per_clip,
+    #     frame_step=eval_frame_step,
+    #     eval_duration=eval_duration,
+    #     num_segments=eval_num_segments if attend_across_segments else 1,
+    #     num_views_per_segment=1,
+    #     allow_segment_overlap=True,
+    #     batch_size=batch_size,
+    #     world_size=world_size,
+    #     rank=rank,
+    #     training=True)
     val_loader = make_dataloader(
         dataset_type=dataset_type,
         root_path=val_data_path,
@@ -214,85 +219,103 @@ def main(args_eval, resume_preempt=False):
         world_size=world_size,
         rank=rank,
         training=False)
-    ipe = len(train_loader)
-    logger.info(f'Dataloader created... iterations per epoch: {ipe}')
+    # ipe = len(train_loader)
+    # logger.info(f'Dataloader created... iterations per epoch: {ipe}')
 
     # -- optimizer and scheduler
-    optimizer, scaler, scheduler, wd_scheduler = init_opt(
-        classifier=classifier,
-        wd=wd,
-        start_lr=start_lr,
-        ref_lr=lr,
-        final_lr=final_lr,
-        iterations_per_epoch=ipe,
-        warmup=warmup,
-        num_epochs=num_epochs,
-        use_bfloat16=use_bfloat16)
+    # optimizer, scaler, scheduler, wd_scheduler = init_opt(
+    #     classifier=classifier,
+    #     wd=wd,
+    #     start_lr=start_lr,
+    #     ref_lr=lr,
+    #     final_lr=final_lr,
+    #     iterations_per_epoch=ipe,
+    #     warmup=warmup,
+    #     num_epochs=num_epochs,
+    #     use_bfloat16=use_bfloat16)
+    classifier = classifier.to(device)
     classifier = DistributedDataParallel(classifier, static_graph=True)
 
     # -- load training checkpoint
-    start_epoch = 0
-    if resume_checkpoint:
-        classifier, optimizer, scaler, start_epoch = load_checkpoint(
-            device=device,
-            r_path=latest_path,
-            classifier=classifier,
-            opt=optimizer,
-            scaler=scaler)
-        for _ in range(start_epoch*ipe):
-            scheduler.step()
-            wd_scheduler.step()
+    # start_epoch = 0
+    # if resume_checkpoint:
+    #     classifier, optimizer, scaler, start_epoch = load_checkpoint(
+    #         device=device,
+    #         r_path=latest_path,
+    #         classifier=classifier,
+    #         opt=optimizer,
+    #         scaler=scaler)
+    #     for _ in range(start_epoch*ipe):
+    #         scheduler.step()
+    #         wd_scheduler.step()
 
-    def save_checkpoint(epoch):
-        save_dict = {
-            'classifier': classifier.state_dict(),
-            'opt': optimizer.state_dict(),
-            'scaler': None if scaler is None else scaler.state_dict(),
-            'epoch': epoch,
-            'batch_size': batch_size,
-            'world_size': world_size,
-            'lr': lr
-        }
-        if rank == 0:
-            torch.save(save_dict, latest_path)
+    # def save_checkpoint(epoch):
+    #     save_dict = {
+    #         'classifier': classifier.state_dict(),
+    #         'opt': optimizer.state_dict(),
+    #         'scaler': None if scaler is None else scaler.state_dict(),
+    #         'epoch': epoch,
+    #         'batch_size': batch_size,
+    #         'world_size': world_size,
+    #         'lr': lr
+    #     }
+    #     if rank == 0:
+    #         torch.save(save_dict, latest_path)
 
     # TRAIN LOOP
-    for epoch in range(start_epoch, num_epochs):
-        logger.info('Epoch %d' % (epoch + 1))
-        train_acc = run_one_epoch(
-            device=device,
-            training=True,
-            num_temporal_views=eval_num_segments if attend_across_segments else 1,
-            attend_across_segments=attend_across_segments,
-            num_spatial_views=1,
-            encoder=encoder,
-            classifier=classifier,
-            scaler=scaler,
-            optimizer=optimizer,
-            scheduler=scheduler,
-            wd_scheduler=wd_scheduler,
-            data_loader=train_loader,
-            use_bfloat16=use_bfloat16)
+    # for epoch in range(start_epoch, num_epochs):
+    #     logger.info('Epoch %d' % (epoch + 1))
+    #     train_acc = run_one_epoch(
+    #         device=device,
+    #         training=True,
+    #         num_temporal_views=eval_num_segments if attend_across_segments else 1,
+    #         attend_across_segments=attend_across_segments,
+    #         num_spatial_views=1,
+    #         encoder=encoder,
+    #         classifier=classifier,
+    #         scaler=scaler,
+    #         optimizer=optimizer,
+    #         scheduler=scheduler,
+    #         wd_scheduler=wd_scheduler,
+    #         data_loader=train_loader,
+    #         use_bfloat16=use_bfloat16)
 
-        val_acc = run_one_epoch(
-            device=device,
-            training=False,
-            num_temporal_views=eval_num_segments,
-            attend_across_segments=attend_across_segments,
-            num_spatial_views=eval_num_views_per_segment,
-            encoder=encoder,
-            classifier=classifier,
-            scaler=scaler,
-            optimizer=optimizer,
-            scheduler=scheduler,
-            wd_scheduler=wd_scheduler,
-            data_loader=val_loader,
-            use_bfloat16=use_bfloat16)
+    #     val_acc = run_one_epoch(
+    #         device=device,
+    #         training=False,
+    #         num_temporal_views=eval_num_segments,
+    #         attend_across_segments=attend_across_segments,
+    #         num_spatial_views=eval_num_views_per_segment,
+    #         encoder=encoder,
+    #         classifier=classifier,
+    #         scaler=scaler,
+    #         optimizer=optimizer,
+    #         scheduler=scheduler,
+    #         wd_scheduler=wd_scheduler,
+    #         data_loader=val_loader,
+    #         use_bfloat16=use_bfloat16)
 
-        logger.info('[%5d] train: %.3f%% test: %.3f%%' % (epoch + 1, train_acc, val_acc))
-        if rank == 0:
-            csv_logger.log(epoch + 1, train_acc, val_acc)
-        save_checkpoint(epoch + 1)
+    #     logger.info('[%5d] train: %.3f%% test: %.3f%%' % (epoch + 1, train_acc, val_acc))
+    #     if rank == 0:
+    #         csv_logger.log(epoch + 1, train_acc, val_acc)
+    #     save_checkpoint(epoch + 1)
+        
+    val_acc = run_one_epoch(
+        device=device,
+        training=False,
+        num_temporal_views=eval_num_segments,
+        attend_across_segments=attend_across_segments,
+        num_spatial_views=eval_num_views_per_segment,
+        encoder=encoder,
+        classifier=classifier,
+        # scaler=scaler,
+        # optimizer=optimizer,
+        # scheduler=scheduler,
+        # wd_scheduler=wd_scheduler,
+        data_loader=val_loader,
+        use_bfloat16=use_bfloat16,
+    )
+
 
 
 def run_one_epoch(
@@ -300,10 +323,10 @@ def run_one_epoch(
     training,
     encoder,
     classifier,
-    scaler,
-    optimizer,
-    scheduler,
-    wd_scheduler,
+    # scaler,
+    # optimizer,
+    # scheduler,
+    # wd_scheduler,
     data_loader,
     use_bfloat16,
     num_spatial_views,
@@ -316,9 +339,9 @@ def run_one_epoch(
     top1_meter = AverageMeter()
     for itr, data in enumerate(data_loader):
 
-        if training:
-            scheduler.step()
-            wd_scheduler.step()
+        # if training:
+        #     scheduler.step()
+        #     wd_scheduler.step()
 
         with torch.cuda.amp.autocast(dtype=torch.float16, enabled=use_bfloat16):
 
@@ -359,18 +382,18 @@ def run_one_epoch(
             top1_acc = float(AllReduce.apply(top1_acc))
             top1_meter.update(top1_acc)
 
-        if training:
-            if use_bfloat16:
-                scaler.scale(loss).backward()
-                scaler.unscale_(optimizer)
-                torch.nn.utils.clip_grad_norm_(classifier.parameters(), 1.0)
-                scaler.step(optimizer)
-                scaler.update()
-            else:
-                loss.backward()
-                torch.nn.utils.clip_grad_norm_(classifier.parameters(), 1.0)
-                optimizer.step()
-            optimizer.zero_grad()
+        # if training:
+        #     if use_bfloat16:
+        #         scaler.scale(loss).backward()
+        #         scaler.unscale_(optimizer)
+        #         torch.nn.utils.clip_grad_norm_(classifier.parameters(), 1.0)
+        #         scaler.step(optimizer)
+        #         scaler.update()
+        #     else:
+        #         loss.backward()
+        #         torch.nn.utils.clip_grad_norm_(classifier.parameters(), 1.0)
+        #         optimizer.step()
+        #     optimizer.zero_grad()
 
         if itr % 20 == 0:
             logger.info('[%5d] %.3f%% (loss: %.3f) [mem: %.2e]'
@@ -381,11 +404,11 @@ def run_one_epoch(
 
 
 def load_checkpoint(
-    device,
+    # device,
     r_path,
     classifier,
-    opt,
-    scaler
+    # opt,
+    # scaler
 ):
     try:
         checkpoint = torch.load(r_path, map_location=torch.device('cpu'))
@@ -397,18 +420,19 @@ def load_checkpoint(
         logger.info(f'loaded pretrained classifier from epoch {epoch} with msg: {msg}')
 
         # -- loading optimizer
-        opt.load_state_dict(checkpoint['opt'])
-        if scaler is not None:
-            scaler.load_state_dict(checkpoint['scaler'])
-        logger.info(f'loaded optimizers from epoch {epoch}')
-        logger.info(f'read-path: {r_path}')
-        del checkpoint
+        # opt.load_state_dict(checkpoint['opt'])
+        # if scaler is not None:
+        #     scaler.load_state_dict(checkpoint['scaler'])
+        # logger.info(f'loaded optimizers from epoch {epoch}')
+        # logger.info(f'read-path: {r_path}')
+        # del checkpoint
 
     except Exception as e:
         logger.info(f'Encountered exception when loading checkpoint {e}')
         epoch = 0
 
-    return classifier, opt, scaler, epoch
+    # return classifier, opt, scaler, epoch
+    return classifier
 
 
 def load_pretrained(

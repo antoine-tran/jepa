@@ -16,9 +16,11 @@ logger = logging.getLogger()
 def main(
     eval_name,
     args_eval,
-    resume_preempt=False
+    resume_preempt=False,
+    fs2=False
 ):
+    eval_module = "eval_fs2" if fs2 else "eval" 
     logger.info(f'Running evaluation: {eval_name}')
-    return importlib.import_module(f'evals.{eval_name}.eval_fs2').main(
+    return importlib.import_module(f'evals.{eval_name}.{eval_module}').main(
         args_eval=args_eval,
         resume_preempt=resume_preempt)
