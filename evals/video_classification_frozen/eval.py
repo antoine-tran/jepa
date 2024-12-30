@@ -6,6 +6,8 @@
 #
 
 import os
+import re
+from typing import Any, Mapping
 
 # -- FOR DISTRIBUTED TRAINING ENSURE ONLY 1 DEVICE VISIBLE PER PROCESS
 try:
@@ -52,6 +54,7 @@ from evals.video_classification_frozen.utils import (
     FrameAggregation
 )
 
+
 logging.basicConfig()
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -62,6 +65,37 @@ torch.manual_seed(_GLOBAL_SEED)
 torch.backends.cudnn.benchmark = True
 
 pp = pprint.PrettyPrinter(indent=4)
+
+
+def convert_model_state_dict(
+    state_dict: dict[str, Any], key_map: Mapping[str, str]
+) -> dict[str, Any]:
+    """Convert a model state dictionary to fairseq2.
+
+    :param state_dict:
+        The original model state dictionary.
+    :param key_map:
+        A map of regex patterns to fairseq2 model keys.
+
+    :returns:
+        A converted model state dictionary that is compatible with fairseq2.
+    """
+    new_state_dict = {}
+
+    def get_new_key(old_key: str) -> str:
+        for old_pattern, replacement in key_map.items():
+            if (new_key := re.sub(old_pattern, replacement, old_key)) != old_key:
+                return new_key
+
+        return old_key
+
+    # Convert module keys from fairseq to fairseq2.
+    for old_key in state_dict.keys():
+        new_key = get_new_key(old_key)
+
+        new_state_dict[new_key] = state_dict[old_key]
+
+    return new_state_dict
 
 
 def main(args_eval, resume_preempt=False):
@@ -187,7 +221,7 @@ def main(args_eval, resume_preempt=False):
         num_classes=num_classes,
     )
 
-    classifier = load_checkpoint(
+    classifier = load_classifier(
         r_path=probe_checkpoit,
         classifier=classifier,
     )
@@ -318,7 +352,6 @@ def main(args_eval, resume_preempt=False):
     )
 
 
-
 def run_one_epoch(
     device,
     training,
@@ -404,7 +437,7 @@ def run_one_epoch(
     return top1_meter.avg
 
 
-def load_checkpoint(
+def load_classifier(
     # device,
     r_path,
     classifier,
@@ -416,8 +449,13 @@ def load_checkpoint(
         epoch = checkpoint['epoch']
 
         # -- loading encoder
-        pretrained_dict = checkpoint['classifier']
-        msg = classifier.load_state_dict(pretrained_dict)
+        state_dict = checkpoint['classifier']
+        key_map = {
+            r"^module\.pooler\.": r"pooler.",
+            r"^module\.linear\.": r"linear.", 
+        }
+        state_dict = convert_model_state_dict(state_dict, key_map)
+        msg = classifier.load_state_dict(state_dict)
         logger.info(f'loaded classifier from epoch {epoch} with msg: {msg}')
 
         # -- loading optimizer
@@ -486,7 +524,7 @@ def make_dataloader(
         training=training,
         num_views_per_clip=num_views_per_segment,
         random_horizontal_flip=False,
-        random_resize_aspect_ratio=(0.75, 4/3),
+        random_resize_aspect_ratio=(0.75, 4 / 3),
         random_resize_scale=(0.08, 1.0),
         reprob=0.25,
         auto_augment=True,
@@ -544,43 +582,43 @@ def init_model(
     return encoder
 
 
-def init_opt(
-    classifier,
-    iterations_per_epoch,
-    start_lr,
-    ref_lr,
-    warmup,
-    num_epochs,
-    wd=1e-6,
-    final_wd=1e-6,
-    final_lr=0.0,
-    use_bfloat16=False
-):
-    param_groups = [
-        {
-            'params': (p for n, p in classifier.named_parameters()
-                       if ('bias' not in n) and (len(p.shape) != 1))
-        }, {
-            'params': (p for n, p in classifier.named_parameters()
-                       if ('bias' in n) or (len(p.shape) == 1)),
-            'WD_exclude': True,
-            'weight_decay': 0
-        }
-    ]
+# def init_opt(
+#     classifier,
+#     iterations_per_epoch,
+#     start_lr,
+#     ref_lr,
+#     warmup,
+#     num_epochs,
+#     wd=1e-6,
+#     final_wd=1e-6,
+#     final_lr=0.0,
+#     use_bfloat16=False
+# ):
+#     param_groups = [
+#         {
+#             'params': (p for n, p in classifier.named_parameters()
+#                        if ('bias' not in n) and (len(p.shape) != 1))
+#         }, {
+#             'params': (p for n, p in classifier.named_parameters()
+#                        if ('bias' in n) or (len(p.shape) == 1)),
+#             'WD_exclude': True,
+#             'weight_decay': 0
+#         }
+#     ]
 
-    logger.info('Using AdamW')
-    optimizer = torch.optim.AdamW(param_groups)
-    scheduler = WarmupCosineSchedule(
-        optimizer,
-        warmup_steps=int(warmup*iterations_per_epoch),
-        start_lr=start_lr,
-        ref_lr=ref_lr,
-        final_lr=final_lr,
-        T_max=int(num_epochs*iterations_per_epoch))
-    wd_scheduler = CosineWDSchedule(
-        optimizer,
-        ref_wd=wd,
-        final_wd=final_wd,
-        T_max=int(num_epochs*iterations_per_epoch))
-    scaler = torch.cuda.amp.GradScaler() if use_bfloat16 else None
-    return optimizer, scaler, scheduler, wd_scheduler
+#     logger.info('Using AdamW')
+#     optimizer = torch.optim.AdamW(param_groups)
+#     scheduler = WarmupCosineSchedule(
+#         optimizer,
+#         warmup_steps=int(warmup * iterations_per_epoch),
+#         start_lr=start_lr,
+#         ref_lr=ref_lr,
+#         final_lr=final_lr,
+#         T_max=int(num_epochs * iterations_per_epoch))
+#     wd_scheduler = CosineWDSchedule(
+#         optimizer,
+#         ref_wd=wd,
+#         final_wd=final_wd,
+#         T_max=int(num_epochs*iterations_per_epoch))
+#     scaler = torch.cuda.amp.GradScaler() if use_bfloat16 else None
+#     return optimizer, scaler, scheduler, wd_scheduler
