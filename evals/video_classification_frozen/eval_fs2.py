@@ -9,12 +9,13 @@
 
 from contextlib import AbstractContextManager, nullcontext
 from pathlib import Path
+
 import torch
+import torch.nn.functional as F
 
 from fairseq2.logging import get_log_writer
 from fairseq2.models.jepa import load_jepa_model
-from fairseq2.models.jepa.classifier import JEPA_CLASSIFIER_FAMILY, load_jepa_classifier_model
-from fairseq2.models.sequence import SequenceBatch
+from fairseq2.models.jepa.classifier import JEPA_CLASSIFIER_FAMILY, load_jepa_classifier_model, JepaClassifierModel
 from fairseq2.nn.utils.module import freeze_parameters, share_parameters, to_device
 from fairseq2.recipes.utils.setup import setup_root_gang
 from fairseq2.typing import CPU, Device, DataType
@@ -24,7 +25,7 @@ from src.utils.logging import AverageMeter
 from src.datasets.data_manager import init_data
 from src.utils.distributed import AllReduce
 
-from evals.fs2 import create_model_card, to_batch
+from evals.fs2 import Aggregator, create_model_card, to_batch
 
 log = get_log_writer(__name__)
 
@@ -45,6 +46,7 @@ def main(args_eval, resume_preempt=False):
     args_pretrain = args_eval.get("pretrain")
     model_name = args_pretrain.get("model_name")
     model_arch = args_pretrain.get("model_arch")
+    tubelet_size = args_pretrain.get("tubelet_size", 2)
     
     # -- DATA
     args_data = args_eval.get('data')
@@ -63,6 +65,7 @@ def main(args_eval, resume_preempt=False):
     args_eval = args_eval.get("eval")
     batch_size = args_eval.get("batch_size")
     classifier_checkpoint = Path(args_eval.get("checkpoint"))
+    attend_across_segments = args_eval.get("attend_across_segments")
     
     # ----------------------------------------------------------------------- #
 
@@ -85,15 +88,17 @@ def main(args_eval, resume_preempt=False):
         dtype=torch.float32,
         strict_state_dict=False,
     )
-        
-    pt_model = load_jepa_model(model_name, device=CPU, dtype=torch.float32)
-    share_parameters(pt_model.encoder, model.encoder)
-    
-    del pt_model
     
     if gang.rank == 0:
-        to_device(model, gang.device)
+        pt_model = load_jepa_model(model_name, device=CPU, dtype=torch.float32)
+        share_parameters(pt_model.encoder, model.encoder)
     
+        del pt_model
+        
+        model = Aggregator(model, tubelet_size=tubelet_size, attend_across_segments=attend_across_segments)
+        
+        to_device(model, gang.device)
+
     gang.barrier()
     
     # TODO: Experiment with finetuning the classifier layer. For now we freeze everything
@@ -121,6 +126,7 @@ def main(args_eval, resume_preempt=False):
         data_loader=val_loader,
         device=gang.device,
         dtype=torch.float32,
+        attend_across_segments=attend_across_segments,
     )
 
 def make_dataloader(
@@ -186,7 +192,9 @@ def run_eval(
     data_loader,
     device,
     dtype,
+    attend_across_segments=False,
 ):
+    assert isinstance(model, JepaClassifierModel), f"Unexpected model: {type(model)}"
     top1_meter = AverageMeter()
     for itr, data in enumerate(data_loader):
 
@@ -200,10 +208,13 @@ def run_eval(
             clip_indices = [d.to(device, non_blocking=True) for d in data[2]]
             labels = data[1].to(device)
             batch_size = len(labels)
-            batch = to_batch(clips, clip_indices)
+
             with torch.no_grad():
-                outputs = model(batch)
-        breakpoint()
+                outputs = model(clips, clip_indices=clip_indices)
+        
+        if attend_across_segments:
+            outputs = sum([F.softmax(o, dim=1) for o in outputs]) / len(outputs)
+            
         top1_acc = 100. * outputs.max(dim=1).indices.eq(labels).sum() / batch_size
         top1_acc = float(AllReduce.apply(top1_acc))
         top1_meter.update(top1_acc)
