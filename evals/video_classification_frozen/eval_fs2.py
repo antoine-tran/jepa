@@ -106,18 +106,6 @@ def main(args_eval, resume_preempt=False):
         strict_state_dict=False,
     )
     
-    if gang.rank == 0:
-        pt_model = load_jepa_model(model_name, device=CPU, dtype=torch.float32)
-        share_parameters(pt_model.encoder, model.encoder)
-    
-        del pt_model
-        
-        model = Aggregator(model, tubelet_size=tubelet_size, attend_across_segments=attend_across_segments)
-        
-        to_device(model, gang.device)
-
-    gang.barrier()
-
     # Load fs2 original encoder and AttentiveClassifier for parity check
     encoder = init_model(
         crop_size=resolution,
@@ -132,11 +120,6 @@ def main(args_eval, resume_preempt=False):
         use_SiLU=use_SiLU,
         tight_SiLU=tight_SiLU,
         use_sdpa=use_sdpa)
-    encoder = ClipAggregation(
-        encoder,
-        tubelet_size=tubelet_size,
-        attend_across_segments=attend_across_segments
-    ).to(gang.device)
     encoder.eval()
     for p in encoder.parameters():
         p.requires_grad = False
@@ -151,6 +134,25 @@ def main(args_eval, resume_preempt=False):
         r_path=classifier_checkpoint,
         classifier=classifier,
     )
+    
+    if gang.rank == 0:
+        pt_model = load_jepa_model(model_name, device=CPU, dtype=torch.float32)
+        share_parameters(pt_model.encoder, model.encoder)
+    
+        del pt_model
+        
+        model = Aggregator(
+            model,
+            encoder=encoder,
+            classifier=classifier,
+            tubelet_size=tubelet_size, 
+            attend_across_segments=attend_across_segments
+        )
+        
+        to_device(model, gang.device)
+
+    gang.barrier()
+
 
     # TODO: Experiment with finetuning the classifier layer. For now we freeze everything
     # and perform pure evaluation

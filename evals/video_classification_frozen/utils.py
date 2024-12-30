@@ -133,7 +133,7 @@ class ClipAggregation(nn.Module):
         for i in range(num_clips):
             o = outputs[i*eff_B:(i+1)*eff_B]
             for j in range(num_views_per_clip):
-                all_outputs[j].append(o[j*B:(j+1)*B])
+                all_outputs[j].append(o[j*B:(j+1)*B]) 
 
         if not self.attend_across_segments:
             return all_outputs

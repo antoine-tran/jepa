@@ -19,6 +19,9 @@ from fairseq2.assets import AssetCard, InProcAssetMetadataProvider, default_asse
 from fairseq2.models.jepa.classifier import JepaClassifierModel
 from fairseq2.models.jepa import load_jepa_config
 
+from src.models.attentive_pooler import AttentiveClassifier
+from src.models.vision_transformer import VisionTransformer
+
 setup_asset_store(default_asset_store)
 
 
@@ -62,11 +65,15 @@ class Aggregator(nn.Module):
     def __init__(
         self,
         model: JepaClassifierModel,
+        encoder: VisionTransformer,
+        classifier: AttentiveClassifier,
         tubelet_size: int = 2,
         attend_across_segments: bool = False,
     ):
         super().__init__()
         self.model = model
+        self.encoder = encoder
+        self.classifier = classifier
         self.tubelet_size = tubelet_size
         self.attend_across_segments = attend_across_segments
 
@@ -81,6 +88,10 @@ class Aggregator(nn.Module):
 
         features = self.model.encoder_frontend(seqs=x, padding_mask=None)
         embed, _ = self.model.encoder(*features)  # [batch x num_views_per_clip x num_clips, num_tokens, embed_dim]
+
+        output_orig = self.encoder(x)
+        
+        torch.testing.assert_close(embed, output_orig, atol=1e-5, rtol=1e-5)
 
         _, num_tokens, D = embed.size()
         T = T // self.tubelet_size  # Num temporal tokens
@@ -103,7 +114,14 @@ class Aggregator(nn.Module):
             
             view_pool = self.model.pooler(view_embed)
             view_pool = view_pool.squeeze(1)  # Remove temporal dimension as all are attended into one pooled vector
-            view_output = self.model.head(view_pool)
+            view_output = self.model.head(view_pool)            
+            
+            # Check parity with the classifier
+            view_output_orig = self.classifier(view_output)
+            
+            torch.testing.assert_close(view_output, view_output_orig, atol=1e-5, rtol=1e-5)
+            
             view_outputs.append(view_output)
+
         
         return view_outputs
