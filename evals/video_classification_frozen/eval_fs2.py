@@ -8,6 +8,7 @@
 # This script requires fairseq2 to be installed
 
 from contextlib import AbstractContextManager, nullcontext
+import os
 from pathlib import Path
 
 import torch
@@ -16,13 +17,17 @@ import torch.nn.functional as F
 from fairseq2.logging import get_log_writer
 from fairseq2.models.jepa import load_jepa_model
 from fairseq2.models.jepa.classifier import JEPA_CLASSIFIER_FAMILY, load_jepa_classifier_model, JepaClassifierModel
+from fairseq2.models.utils.checkpoint import convert_model_state_dict
 from fairseq2.nn.utils.module import freeze_parameters, share_parameters, to_device
 from fairseq2.recipes.utils.setup import setup_root_gang
 from fairseq2.typing import CPU, Device, DataType
 
-from evals.video_classification_frozen.utils import make_transforms
+from evals.video_classification_frozen.utils import ClipAggregation, make_transforms
+
+from src.models.attentive_pooler import AttentiveClassifier
 from src.utils.logging import AverageMeter
 from src.datasets.data_manager import init_data
+import src.models.vision_transformer as vit
 from src.utils.distributed import AllReduce
 
 from evals.fs2 import Aggregator, create_model_card
@@ -46,8 +51,20 @@ def main(args_eval, resume_preempt=False):
     args_pretrain = args_eval.get("pretrain")
     model_name = args_pretrain.get("model_name")
     model_arch = args_pretrain.get("model_arch")
-    tubelet_size = args_pretrain.get("tubelet_size", 2)
-    
+    checkpoint_key = args_pretrain.get('checkpoint_key', 'target_encoder')
+    model_name = args_pretrain.get('model_name', None)
+    patch_size = args_pretrain.get('patch_size', None)
+    pretrain_folder = args_pretrain.get('folder', None)
+    ckp_fname = args_pretrain.get('checkpoint', None)
+    use_sdpa = args_pretrain.get('use_sdpa', True)
+    use_SiLU = args_pretrain.get('use_silu', False)
+    tight_SiLU = args_pretrain.get('tight_silu', True)
+    uniform_power = args_pretrain.get('uniform_power', False)
+    pretrained_path = os.path.join(pretrain_folder, ckp_fname)
+    # Optional [for Video model]:
+    tubelet_size = args_pretrain.get('tubelet_size', 2)
+    pretrain_frames_per_clip = args_pretrain.get('frames_per_clip', 1)
+
     # -- DATA
     args_data = args_eval.get('data')
     val_data_path = [args_data.get('dataset_val')]
@@ -100,7 +117,41 @@ def main(args_eval, resume_preempt=False):
         to_device(model, gang.device)
 
     gang.barrier()
-    
+
+    # Load fs2 original encoder and AttentiveClassifier for parity check
+    encoder = init_model(
+        crop_size=resolution,
+        device=gang.device,
+        pretrained=pretrained_path,
+        model_name=model_name,
+        patch_size=patch_size,
+        tubelet_size=tubelet_size,
+        frames_per_clip=pretrain_frames_per_clip,
+        uniform_power=uniform_power,
+        checkpoint_key=checkpoint_key,
+        use_SiLU=use_SiLU,
+        tight_SiLU=tight_SiLU,
+        use_sdpa=use_sdpa)
+    encoder = ClipAggregation(
+        encoder,
+        tubelet_size=tubelet_size,
+        attend_across_segments=attend_across_segments
+    ).to(gang.device)
+    encoder.eval()
+    for p in encoder.parameters():
+        p.requires_grad = False
+
+    classifier = AttentiveClassifier(
+        embed_dim=encoder.embed_dim,
+        num_heads=encoder.num_heads,
+        depth=1,
+        num_classes=num_classes,
+    )
+    classifier = load_classifier(
+        r_path=classifier_checkpoint,
+        classifier=classifier,
+    )
+
     # TODO: Experiment with finetuning the classifier layer. For now we freeze everything
     # and perform pure evaluation
     model.eval()
@@ -123,6 +174,8 @@ def main(args_eval, resume_preempt=False):
     
     val_acc = run_eval(
         model=model,
+        encoder=encoder,
+        classifier=classifier,
         data_loader=val_loader,
         device=gang.device,
         dtype=torch.float16,
@@ -177,7 +230,6 @@ def make_dataloader(
     return data_loader
 
 
-
 def load_pretrained(
     encoder,
     pretrained,
@@ -203,6 +255,42 @@ def load_pretrained(
     log.info(f'loaded pretrained encoder from epoch: {checkpoint["epoch"]}\n path: {pretrained}')
     del checkpoint
     return encoder
+
+def load_classifier(
+    # device,
+    r_path,
+    classifier,
+    # opt,
+    # scaler
+):
+    try:
+        checkpoint = torch.load(r_path, map_location=torch.device('cpu'))
+        epoch = checkpoint['epoch']
+
+        # -- loading encoder
+        state_dict = checkpoint['classifier']
+        key_map = {
+            r"^module\.pooler\.": r"pooler.",
+            r"^module\.linear\.": r"linear.", 
+        }
+        state_dict = convert_model_state_dict(state_dict, key_map)
+        msg = classifier.load_state_dict(state_dict)
+        log.info(f'loaded classifier from epoch {epoch} with msg: {msg}')
+
+        # -- loading optimizer
+        # opt.load_state_dict(checkpoint['opt'])
+        # if scaler is not None:
+        #     scaler.load_state_dict(checkpoint['scaler'])
+        # logger.info(f'loaded optimizers from epoch {epoch}')
+        # logger.info(f'read-path: {r_path}')
+        # del checkpoint
+
+    except Exception as e:
+        log.info(f'Encountered exception when loading checkpoint {e}')
+        epoch = 0
+
+    # return classifier, opt, scaler, epoch
+    return classifier
 
 
 def init_model(
@@ -245,12 +333,14 @@ def _maybe_autocast(device: Device, dtype: DataType) -> AbstractContextManager[N
 
 def run_eval(
     model,
+    encoder,
+    classifier,
     data_loader,
     device,
     dtype,
     attend_across_segments=False,
 ):
-    top1_meter = AverageMeter()
+    meter_fs2 = AverageMeter()
     for itr, data in enumerate(data_loader):
 
         with _maybe_autocast(device=device, dtype=dtype):
@@ -265,18 +355,22 @@ def run_eval(
             batch_size = len(labels)
 
             with torch.no_grad():
-                outputs = model(clips, clip_indices=clip_indices)
+                outputs_fs2 = model(clips, clip_indices=clip_indices)
+                outputs_orig = encoder(clips, clip_indices=clip_indices)
+                outputs_orig = [classifier(o) for o in outputs_orig]
+                for o_fs2, o_orig in zip(outputs_fs2, outputs_orig):
+                    torch.testing.assert_close(o_fs2, o_orig, atol=1e-5, rtol=1e-5)
         
         if attend_across_segments:
-            outputs = sum([F.softmax(o, dim=1) for o in outputs]) / len(outputs)
+            outputs_fs2 = sum([F.softmax(o, dim=1) for o in outputs_fs2]) / len(outputs_fs2)
             
-        top1_acc = 100. * outputs.max(dim=1).indices.eq(labels).sum() / batch_size
-        top1_acc = float(AllReduce.apply(top1_acc))
-        top1_meter.update(top1_acc)
+        acc_fs2 = 100. * outputs_fs2.max(dim=1).indices.eq(labels).sum() / batch_size
+        acc_fs2 = float(AllReduce.apply(acc_fs2))
+        meter_fs2.update(acc_fs2)
 
         if itr % 20 == 0:
-            acc = top1_meter.avg
+            acc = meter_fs2.avg
             mem = torch.cuda.max_memory_allocated() / 1024.**2
             log.info(f"[{itr:5d}] {acc:.3f}  [mem: {mem:.2e}]")
 
-    return top1_meter.avg
+    return meter_fs2.avg
