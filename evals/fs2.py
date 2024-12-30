@@ -119,6 +119,8 @@ class Aggregator(nn.Module):
             # Check parity with the classifier
             view_output_orig = self.classifier(view_output)
             
+            breakpoint()
+            
             torch.testing.assert_close(view_output, view_output_orig, atol=1e-5, rtol=1e-5)
             
             view_outputs.append(view_output)
