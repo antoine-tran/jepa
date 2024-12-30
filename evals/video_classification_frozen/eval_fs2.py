@@ -25,7 +25,7 @@ from src.utils.logging import AverageMeter
 from src.datasets.data_manager import init_data
 from src.utils.distributed import AllReduce
 
-from evals.fs2 import Aggregator, create_model_card, to_batch
+from evals.fs2 import Aggregator, create_model_card
 
 log = get_log_writer(__name__)
 
