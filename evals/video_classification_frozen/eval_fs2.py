@@ -154,7 +154,6 @@ def main(args_eval, resume_preempt=False):
 
     gang.barrier()
 
-
     # TODO: Experiment with finetuning the classifier layer. For now we freeze everything
     # and perform pure evaluation
     model.eval()

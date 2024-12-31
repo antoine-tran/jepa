@@ -88,9 +88,9 @@ class Aggregator(nn.Module):
 
         features = self.model.encoder_frontend(seqs=x, padding_mask=None)
         embed, _ = self.model.encoder(*features)  # [batch x num_views_per_clip x num_clips, num_tokens, embed_dim]
-
-        # output_orig = self.encoder(x)
-        # torch.testing.assert_close(embed, output_orig, atol=1e-5, rtol=1e-5)
+        breakpoint()
+        output_orig = self.encoder(x)
+        torch.testing.assert_close(embed, output_orig, atol=1e-5, rtol=1e-5)
 
         _, num_tokens, D = embed.size()
         T = T // self.tubelet_size  # Num temporal tokens
@@ -116,9 +116,9 @@ class Aggregator(nn.Module):
             view_output = self.model.head(view_pool) 
             
             # Check parity with the classifier
-            # view_output_orig = self.classifier(view_output)
-                        
-            # torch.testing.assert_close(view_output, view_output_orig, atol=1e-5, rtol=1e-5)
+            view_output_orig = self.classifier(view_output)
+            breakpoint()            
+            torch.testing.assert_close(view_output, view_output_orig, atol=1e-5, rtol=1e-5)
             
             view_outputs.append(view_output)
 
