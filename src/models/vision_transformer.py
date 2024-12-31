@@ -197,6 +197,8 @@ class VisionTransformer(nn.Module):
     def interpolate_pos_encoding(self, x, pos_embed):
 
         _, N, dim = pos_embed.shape
+        
+        breakpoint()
 
         if self.is_video:
 

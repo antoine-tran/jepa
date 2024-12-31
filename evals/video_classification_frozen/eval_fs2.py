@@ -22,7 +22,7 @@ from fairseq2.nn.utils.module import freeze_parameters, share_parameters, to_dev
 from fairseq2.recipes.utils.setup import setup_root_gang
 from fairseq2.typing import CPU, Device, DataType
 
-from evals.video_classification_frozen.utils import ClipAggregation, make_transforms
+from evals.video_classification_frozen.utils import make_transforms
 
 from src.models.attentive_pooler import AttentiveClassifier
 from src.utils.logging import AverageMeter
@@ -252,7 +252,7 @@ def load_pretrained(
         elif pretrained_dict[k].shape != v.shape:
             log.info(f'key "{k}" is of different shape in model and loaded state dict')
             pretrained_dict[k] = v
-    msg = encoder.load_state_dict(pretrained_dict, strict=False)
+    msg = encoder.load_state_dict(pretrained_dict, strict=True)
     log.info(f'loaded pretrained model with msg: {msg}')
     log.info(f'loaded pretrained encoder from epoch: {checkpoint["epoch"]}\n path: {pretrained}')
     del checkpoint
