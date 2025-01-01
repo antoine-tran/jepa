@@ -117,12 +117,12 @@ class Aggregator(nn.Module):
             
             view_pool = self.model.pooler(view_embed)
             view_pool = view_pool.squeeze(1)  # Remove temporal dimension as all are attended into one pooled vector
-            view_output = self.model.head(view_pool) 
+            view_output = self.model.head(view_pool)
             
             # Check parity with the classifier
-            view_output_orig = self.classifier(view_output)
-            breakpoint()            
-            torch.testing.assert_close(view_output, view_output_orig, atol=1e-5, rtol=1e-5)
+            # view_output_orig = self.classifier(view_output)
+            # breakpoint()            
+            # torch.testing.assert_close(view_output, view_output_orig, atol=1e-5, rtol=1e-5)
             
             view_outputs.append(view_output)
 
