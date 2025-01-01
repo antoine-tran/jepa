@@ -85,10 +85,14 @@ class Aggregator(nn.Module):
         # Concatenate all spatial and temporal views along batch dimension
         x = [torch.cat(clip, dim=0) for clip in clips]
         x = torch.cat(x, dim=0)
+        
+        # inject checkpointed position encoder into fs2 model
+        freqs_shape = self.model.encoder_frontend.pos_encoder.freqs.shape
+        self.model.encoder_frontend.pos_encoder.freqs = self.model.encoder.pos_embed.squeeze().reshape(freqs_shape)
 
         features = self.model.encoder_frontend(seqs=x, padding_mask=None)
         embed, _ = self.model.encoder(*features)  # [batch x num_views_per_clip x num_clips, num_tokens, embed_dim]
-        breakpoint()
+        
         output_orig = self.encoder(x)
         torch.testing.assert_close(embed, output_orig, atol=1e-5, rtol=1e-5)
 
@@ -97,8 +101,6 @@ class Aggregator(nn.Module):
         N = num_tokens // T  # Num spatial tokens
 
         # Unroll outputs into a 2D array [spatial_views x temporal_views]
-        eff_B = B * num_views_per_clip
-        view_embeds = [[] for _ in range(num_views_per_clip)]
         for i in range(num_clips):
             o = embed[i*eff_B:(i+1)*eff_B]
             for j in range(num_views_per_clip):
