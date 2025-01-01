@@ -101,6 +101,8 @@ class Aggregator(nn.Module):
         N = num_tokens // T  # Num spatial tokens
 
         # Unroll outputs into a 2D array [spatial_views x temporal_views]
+        eff_B = B * num_views_per_clip
+        view_embeds = [[] for _ in range(num_views_per_clip)]
         for i in range(num_clips):
             o = embed[i*eff_B:(i+1)*eff_B]
             for j in range(num_views_per_clip):
