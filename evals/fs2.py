@@ -88,7 +88,7 @@ class Aggregator(nn.Module):
         
         # inject checkpointed position encoder into fs2 model
         freqs_shape = self.model.encoder_frontend.pos_encoder.freqs.shape
-        self.model.encoder_frontend.pos_encoder.freqs = self.model.encoder.pos_embed.squeeze().reshape(freqs_shape)
+        self.model.encoder_frontend.pos_encoder.freqs = self.encoder.pos_embed.squeeze().reshape(freqs_shape)
 
         features = self.model.encoder_frontend(seqs=x, padding_mask=None)
         embed, _ = self.model.encoder(*features)  # [batch x num_views_per_clip x num_clips, num_tokens, embed_dim]
