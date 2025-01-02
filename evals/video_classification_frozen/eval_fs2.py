@@ -15,12 +15,15 @@ import torch
 import torch.nn.functional as F
 
 from fairseq2.logging import get_log_writer
-from fairseq2.models.jepa import load_jepa_model
-from fairseq2.models.jepa.classifier import JEPA_CLASSIFIER_FAMILY, load_jepa_classifier_model, JepaClassifierModel
+from fairseq2.models.jepa import load_jepa_model, load_jepa_config, create_jepa_model
+from fairseq2.models.jepa.loader import convert_jepa_checkpoint
+from fairseq2.models.jepa.classifier import JEPA_CLASSIFIER_FAMILY, load_jepa_classifier_model
+from fairseq2.models.loader import StandardModelLoader
 from fairseq2.models.utils.checkpoint import convert_model_state_dict
 from fairseq2.nn.utils.module import freeze_parameters, share_parameters, to_device
 from fairseq2.recipes.utils.setup import setup_root_gang
 from fairseq2.typing import CPU, Device, DataType
+from fairseq2.utils.file import MapLocation, load_tensors
 
 from evals.video_classification_frozen.utils import make_transforms
 
@@ -33,6 +36,24 @@ from src.utils.distributed import AllReduce
 from evals.fs2 import Aggregator, create_model_card
 
 log = get_log_writer(__name__)
+
+
+def load_target_encoder_tensor(
+    path: Path, *, map_location: MapLocation = None, restrict: bool = False
+) -> dict[str, object]:
+
+    state_dict = load_tensors(path, map_location=map_location, restrict=restrict)
+
+    return state_dict["target_encoder"]
+
+
+load_jepa_model_with_target_encoder = StandardModelLoader(
+    config_loader=load_jepa_config,
+    tensor_loader=load_target_encoder_tensor,
+    factory=create_jepa_model,
+    checkpoint_converter=convert_jepa_checkpoint,
+)
+
 
 
 def main(args_eval, resume_preempt=False):
@@ -136,7 +157,7 @@ def main(args_eval, resume_preempt=False):
     )
     
     if gang.rank == 0:
-        pt_model = load_jepa_model(model_name, device=CPU, dtype=torch.float32)
+        pt_model = load_jepa_model_with_target_encoder(model_name, device=CPU, dtype=torch.float32)
         share_parameters(pt_model.encoder_frontend, model.encoder_frontend)
         share_parameters(pt_model.encoder, model.encoder)
     
