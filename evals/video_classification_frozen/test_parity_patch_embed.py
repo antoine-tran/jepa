@@ -11,6 +11,9 @@
 # To run the script:
 # 1. Create an input file `example.yaml`:
 # ```yaml
+#
+# eval_name: video_classification_frozen
+# resume_checkpoint: false
 # pretrain:
 #   model_name: jepa_vitl16
 #   model_arch: large
