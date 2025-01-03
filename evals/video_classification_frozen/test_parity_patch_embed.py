@@ -22,7 +22,7 @@ setup_asset_store(default_asset_store)
 log = get_log_writer(__name__)
 
 
-def main(args):
+def main(args, resume_preempt=False):
     # Copy the params setup from evals.video_classification_frozen.eval_fs2.main()
     
     # -- PRETRAIN

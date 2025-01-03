@@ -23,5 +23,4 @@ def main(
     eval_module = "test_parity_patch_embed"
     logger.info(f'Running evaluation: {eval_name}')
     return importlib.import_module(f'evals.{eval_name}.{eval_module}').main(
-        args=args_eval,
-        resume_preempt=resume_preempt)
+        args=args_eval)
