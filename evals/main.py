@@ -20,7 +20,7 @@ def process_main(fname: str, fs2: bool=False):
         pp.pprint(params)
 
     # Launch the eval with loaded config
-    eval_main(params['eval_name'], args_eval=params, fs2=fs2)
+    eval_main(params['eval_name'], args=params, fs2=fs2)
 
 
 if __name__ == '__main__':
