@@ -18,7 +18,7 @@ def main(
     eval_name,
     args_eval,
     resume_preempt=False,
-    eval_module: Optional[str] = "eval",
+    eval_module: str = "eval",
 
 ):
     logger.info(f'Running evaluation: {eval_name}')

@@ -10,7 +10,7 @@ import yaml
 
 from evals.scaffold import main as eval_main
 
-def process_main(fname: str, fs2: bool=False):
+def process_main(fname: str, eval_module: str = "eval"):
 
     # Load config
     params = None
@@ -20,7 +20,7 @@ def process_main(fname: str, fs2: bool=False):
         pp.pprint(params)
 
     # Launch the eval with loaded config
-    eval_main(params['eval_name'], args_eval=params, fs2=fs2)
+    eval_main(params['eval_name'], args_eval=params, eval_module=eval_module)
 
 
 if __name__ == '__main__':
