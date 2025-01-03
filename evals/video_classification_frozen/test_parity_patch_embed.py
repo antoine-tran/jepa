@@ -6,6 +6,30 @@
 #
 # Quick script to show the disparity beween buffer-based 
 # Sinusoidal3dPositionEncoder and the parameter-based variant
+# 
+# 
+# To run the script:
+# 1. Create an input file `example.yaml`:
+# ```yaml
+# pretrain:
+#   model_name: jepa_vitl16
+#   model_arch: large
+#   checkpoint_key: target_encoder
+#   clip_duration: null
+#   frames_per_clip: 16
+#   tubelet_size: 2
+#   uniform_power: true
+#   use_silu: false
+#   tight_silu: false
+#   use_sdpa: true
+#   patch_size: 16
+#   folder: /fsx-meres/tuantran/checkpoints/jepa/public-ckpts/vitl16/
+#   checkpoint: vitl16.pth.tar
+#   write_tag: jepa
+# ```
+# 
+# 2. Run in source directory root: `python -m evals.main --eval_module=test_parity_patch_embed --fname=example.yaml`
+
 
 import os
 
@@ -22,11 +46,11 @@ setup_asset_store(default_asset_store)
 log = get_log_writer(__name__)
 
 
-def main(args, resume_preempt=False):
+def main(args_eval, resume_preempt=False):
     # Copy the params setup from evals.video_classification_frozen.eval_fs2.main()
     
     # -- PRETRAIN
-    args_pretrain = args.get("pretrain")
+    args_pretrain = args_eval.get("pretrain")
     model_name = args_pretrain.get("model_name")
     checkpoint_key = args_pretrain.get('checkpoint_key', 'target_encoder')
     model_name = args_pretrain.get('model_name', None)
@@ -42,9 +66,7 @@ def main(args, resume_preempt=False):
     tubelet_size = args_pretrain.get('tubelet_size', 2)
     pretrain_frames_per_clip = args_pretrain.get('frames_per_clip', 1)
 
-    # -- DATA
-    args_data = args.get('data')
-    resolution = args_data.get('resolution', 224)
+    resolution = 224
     
     # ----------------------------------------------------------------------- #
 
@@ -79,8 +101,3 @@ def main(args, resume_preempt=False):
     print(f"Frequency table as computed: {freqs}")
     
     torch.testing.assert_close(freqs, encoder.pos_embed)
-
-
-if __name__ == "__main__":
-    from fire import Fire
-    Fire()
