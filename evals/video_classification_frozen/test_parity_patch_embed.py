@@ -34,16 +34,13 @@
 import os
 
 from fairseq2.assets import default_asset_store, setup_asset_store
-from fairseq2.logging import get_log_writer
 from fairseq2.models.jepa import load_jepa_model
-from fairseq2.recipes.utils.setup import setup_root_gang
 from fairseq2.typing import CPU
 import torch
 
 from evals.video_classification_frozen.eval_fs2 import init_model
 
 setup_asset_store(default_asset_store)
-log = get_log_writer(__name__)
 
 
 def main(args_eval, resume_preempt=False):
@@ -70,15 +67,13 @@ def main(args_eval, resume_preempt=False):
     
     # ----------------------------------------------------------------------- #
 
-    gang = setup_root_gang(log)
-    
     # Initialize fs2 JEPA model
     jepa_model = load_jepa_model(model_name, device=CPU, dtype=torch.float32)
     
     # Initialize original model
     encoder = init_model(
         crop_size=resolution,
-        device=gang.device,
+        device=CPU,
         pretrained=pretrained_path,
         model_name="vit_large",
         patch_size=patch_size,
