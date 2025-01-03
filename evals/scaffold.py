@@ -17,11 +17,11 @@ def main(
     eval_name,
     args_eval,
     resume_preempt=False,
-    fs2=False
+    fs2=False,
 ):
     # eval_module = "eval_fs2" if fs2 else "eval"
     eval_module = "test_parity_patch_embed"
     logger.info(f'Running evaluation: {eval_name}')
     return importlib.import_module(f'evals.{eval_name}.{eval_module}').main(
-        args_eval=args_eval,
+        args=args_eval,
         resume_preempt=resume_preempt)
