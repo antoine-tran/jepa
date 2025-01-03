@@ -72,9 +72,13 @@ def main(args, resume_preempt=False):
         p.requires_grad = False
     
     # frequency tables in JEPA are 2D, while the original one is flatten to 1D    
-    breakpoint()
+    freqs = jepa_model.encoder_frontend.pos_encoder.freqs
+    freqs = freqs.unsqueeze(0).flatten(1, -2)  # (H_frq, W_frq, E, D) -> (1, H_frq, W_frq, E, D) -> (1, N, D)
     
-    torch.testing.assert_close(jepa_model.encoder_frontend.pos_encoder.freqs, encoder.pos_embed)
+    print(f"Frequency table as loaded from the checkpoint: {encoder.pos_embed}")
+    print(f"Frequency table as computed: {freqs}")
+    
+    torch.testing.assert_close(freqs, encoder.pos_embed)
 
 
 if __name__ == "__main__":
