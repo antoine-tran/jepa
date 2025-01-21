@@ -168,7 +168,7 @@ class VideoDataset(torch.utils.data.Dataset):
         # Label/annotations for video
         label = self.labels[index]
 
-        def split_into_clips(video):
+        def  split_into_clips(video):
             """ Split video into a list of clips """
             fpc = self.frames_per_clip
             nc = self.num_clips

@@ -377,7 +377,7 @@ def run_one_epoch(
         #     scheduler.step()
         #     wd_scheduler.step()
 
-        with torch.cuda.amp.autocast(dtype=torch.float32, enabled=use_bfloat16):
+         with torch.cuda.amp.autocast(dtype=torch.float32, enabled=use_bfloat16):
 
             # Load data and put on GPU
             clips = [
